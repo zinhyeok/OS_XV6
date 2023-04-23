@@ -1,3 +1,5 @@
+
+
 // Per-CPU state
 struct cpu {
   uchar apicid;                // Local APIC ID
@@ -49,6 +51,12 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+  //for MLFQ
+  int qLevel;                 // current queue level
+	int priority;                // process priority
+	int schLocked;                 // check scehduler Lock, if locked it is 1 
+	int rTick;                   // tick of current process
 };
 
 // Process memory is laid out contiguously, low addresses first:

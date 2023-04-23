@@ -20,6 +20,8 @@ extern void trapret(void);
 
 static void wakeup1(void *chan);
 
+
+
 void
 pinit(void)
 {
@@ -75,7 +77,6 @@ allocproc(void)
 {
   struct proc *p;
   char *sp;
-
   acquire(&ptable.lock);
 
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
@@ -111,6 +112,12 @@ found:
   p->context = (struct context*)sp;
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
+
+  //set default fields of process
+  p-> qLevel = 0;
+  p-> priority = 3;
+  p-> schLocked = 0;
+  p-> rTick = 0; 
 
   return p;
 }
@@ -323,35 +330,128 @@ void
 scheduler(void)
 {
   struct proc *p;
+  struct proc *tmp = 0;
   struct cpu *c = mycpu();
   c->proc = 0;
-  
+  int L0Count = 0;
+  int L1Count = 0;
+
   for(;;){
     // Enable interrupts on this processor.
     sti();
-
-    // Loop over process table looking for process to run.
     acquire(&ptable.lock);
+
+    // check for schLocked process
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
-        continue;
-
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
-
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
-
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc = 0;
+    //check schLocked & scheduling locked process
+      if(p->schLocked == 1 && p->pid > 0){
+        for(;;){
+          if(p->schLocked != 1 || p->pid < 1){
+            goto end;
+          }
+          c->proc = p;
+          switchuvm(p);
+          p->state = RUNNING;
+          swtch(&(c->scheduler), p->context);
+          switchkvm();
+          c->proc = 0;
+          }
+      }
     }
-    release(&ptable.lock);
 
+    //check there is L0 process
+    for(p=ptable.proc;p<&ptable.proc[NPROC];p++){
+	    if(p->qLevel==0&&p->state==RUNNABLE){
+	      L0Count=L0Count+1;
+	      break;
+	    }
+	  }
+    // round robin in L0
+    //TODO check for priority -1 
+	  if(L0Count>0){ 
+      for(p=ptable.proc;p<&ptable.proc[NPROC];p++){
+	    if(p->priority==-1){
+        p->priority = 3;
+        if(p->state==RUNNABLE){
+          c->proc=p; 
+		      switchuvm(p);
+		      p->state=RUNNING;
+          p->rTick=0;
+		      swtch(&(c->scheduler),p->context);
+		      switchkvm();
+		      c->proc=0;
+        }
+	      break;
+	    }
+	  }
+    //Round robin in L0
+	    for(p=ptable.proc;p<&ptable.proc[NPROC];p++){
+	      if(p->state!=RUNNABLE)
+	        continue;
+	      if(p->qLevel==0){
+		      c->proc=p; 
+		      switchuvm(p);
+		      p->state=RUNNING;
+		      swtch(&(c->scheduler),p->context);
+		      switchkvm();
+		      c->proc=0;
+	      }
+	    }
+	  }
+    //check there is L1 process 
+    else{
+      for(p=ptable.proc;p<&ptable.proc[NPROC];p++){
+	    if(p->qLevel==1&&p->state==RUNNABLE){
+	      L1Count=L1Count+1;
+	      break;
+	    }
+	  }
+      // round robiin in L1
+      if(L1Count>0){ 
+        for(p=ptable.proc;p<&ptable.proc[NPROC];p++){
+          if(p->state!=RUNNABLE)
+            continue;
+          if(p->qLevel==1){
+            c->proc=p; 
+            switchuvm(p);
+            p->state=RUNNING;
+            swtch(&(c->scheduler),p->context);
+            switchkvm();
+            c->proc=0;
+          }
+        }
+      }
+      // priority schdule for L2
+      else{ 
+      for(p=ptable.proc;p<&ptable.proc[NPROC];p++){
+        if(p->state!=RUNNABLE)
+          continue;
+        if(p->qLevel==2){
+          if(tmp!=0){
+            if(tmp->priority < p->priority)
+              tmp = p;
+            else if(tmp->priority == p->priority){
+              if(tmp > p)
+                tmp = p;
+            }
+          }
+          else
+            tmp = p;
+        }
+      }
+      if(tmp != 0){
+        p=tmp;
+        c->proc=p;
+        switchuvm(p);
+        p->state=RUNNING;
+        swtch(&(c->scheduler),p->context);
+        switchkvm();
+        c->proc=0;
+      }
+    }
+	}
+  end:
+  release(&ptable.lock);
   }
 }
 
@@ -367,7 +467,6 @@ sched(void)
 {
   int intena;
   struct proc *p = myproc();
-
   if(!holding(&ptable.lock))
     panic("sched ptable.lock");
   if(mycpu()->ncli != 1)
@@ -382,6 +481,7 @@ sched(void)
 }
 
 // Give up the CPU for one scheduling round.
+// Change handling by queue level
 void
 yield(void)
 {
@@ -390,6 +490,116 @@ yield(void)
   sched();
   release(&ptable.lock);
 }
+
+
+//priority boost
+void
+boostPriority(void) {
+    struct proc *p;	
+    acquire(&ptable.lock);
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+	    if(p->qLevel != 0 && p->pid > 0 && p->schLocked == 0) {
+        p-> qLevel = 0;
+        p-> priority = 3;
+        p-> rTick= 0;
+	    }
+    }
+    //unlocked the process if priority boost
+    schedulerUnlock(2018015414);
+    release(&ptable.lock);
+}
+
+//set priority
+void
+setPriority(int pid ,int priority) {
+    struct proc *p;
+    if(priority < 0 || priority > 3) {
+      return;
+    }
+    acquire(&ptable.lock);
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+      if(p->pid == pid && p->pid>0) {
+        p->priority = priority;
+        return;
+      }
+    }    
+    release(&ptable.lock);
+    return;
+}
+
+//get level of process
+int
+getLevel(void){
+  if(myproc() && myproc()->pid > 0){
+    return myproc()->qLevel;
+  }
+  else{
+    return -1;
+  }
+}
+
+//schedulerLock(int password)
+//make process schLocked to 1
+void schedulerLock(int password){
+  struct proc *p = myproc();
+  struct proc *tmp;
+  if(password != 2018015414){
+      cprintf("\n Scheduler Lock Failed \n failed process pid: %d \n time quantum %d \n level of queue",p->pid,p->qLevel*2+4,p->qLevel);
+      if(p){
+        kill(p->pid);
+      }
+      return;
+    }  
+  else{
+    int checker = 0;
+    //check if another process is already locked
+    acquire(&ptable.lock);
+    for(tmp = ptable.proc; tmp < &ptable.proc[NPROC]; tmp++){
+      if(tmp->schLocked == 1){
+        cprintf("\n Scheduler Lock Failed \n failed process pid: %d \n time quantum %d \n level of queue",p->pid,p->qLevel*2+4,p->qLevel);
+        checker =1;
+        if(p){
+          kill(p->pid);
+        }
+        break;
+      }
+    }
+    release(&ptable.lock);
+    // if there is no problem, lock the process
+    if(checker == 0){
+    acquire(&ptable.lock);
+    p->schLocked = 1;
+    release(&ptable.lock);}
+  }
+}
+//schedulerUnlock()
+void schedulerUnlock(int password){
+  struct proc *p = myproc();
+  struct proc *tmp;
+  if(password != 2018015414){
+      cprintf("\n Scheduler UnLock Failed \n failed process pid: %d \n time quantum %d \n level of queue",p->pid,p->qLevel*2+4,p->qLevel);
+      if(p){
+        kill(p->pid);
+      }
+    }  
+  else{
+    //check the process locked and unlock it
+    acquire(&ptable.lock);
+    for(tmp = ptable.proc; tmp < &ptable.proc[NPROC]; tmp++){
+      if(tmp->schLocked == 1){
+        tmp->schLocked = 0;
+        //move to the first queue L0 
+        //first, set the priority to -1 and change it to 3 because it should work first at L0 
+        tmp->qLevel = 0;
+        tmp->priority = -1;
+        tmp->rTick = 0;
+        break;
+      }
+    }
+    release(&ptable.lock);
+  }
+}
+
 
 // A fork child's very first scheduling by scheduler()
 // will swtch here.  "Return" to user space.
@@ -532,3 +742,4 @@ procdump(void)
     cprintf("\n");
   }
 }
+

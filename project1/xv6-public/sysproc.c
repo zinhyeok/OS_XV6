@@ -89,3 +89,49 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+//wrapper function for setPriority
+int
+sys_setPriority(void) {
+    int pid, priority;
+    if(argint(1, &priority) < 0 || argint(1, &priority) > 3) {
+      return -1;
+    }
+    setPriority(argint(0, &pid),argint(1, &priority));
+    return 0;
+}
+
+//wrapper function for getLevel
+int
+sys_getLevel(void){
+  return getLevel();
+}
+
+//wrapper function for yeild
+int
+sys_yield(void){
+  yield();
+  return 0;
+}
+
+//wrapper function for schedulerLock
+int
+sys_schedulerLock(void){
+  int password;
+  if(argint(0, &password) < 0){
+    return -1;
+  }
+  schedulerLock(password);
+  return 0;
+}
+
+//wrapper function for schedulerUnlock
+int
+sys_schedulerUnlock(void){
+  int password;
+  if(argint(0, &password) < 0){
+    return -1;
+  }
+  schedulerUnlock(password);
+  return 0;
+}

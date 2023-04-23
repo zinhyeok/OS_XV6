@@ -8,11 +8,23 @@
 #include "traps.h"
 #include "spinlock.h"
 
+//const using in MLFQ
+const int MAX_TICKS = 100;
+const int L0_TICKS = 4;
+const int L1_TICKS = 6;
+const int L2_TICKS = 8;
+
 // Interrupt descriptor table (shared by all CPUs).
 struct gatedesc idt[256];
 extern uint vectors[];  // in vectors.S: array of 256 entry pointers
 struct spinlock tickslock;
 uint ticks;
+
+//MLFQ Interrupt
+// 129 for schedulerLock interrupt
+// 130 for schedulerUnlock interrupt
+#define T_SCHLOCK 129
+#define T_SCHUNLOCK 130
 
 void
 tvinit(void)
@@ -20,11 +32,10 @@ tvinit(void)
   int i;
 
   for(i = 0; i < 256; i++)
-	 SETGATE(idt[i], 0, SEG_KCODE<<3, vectors[i], 0);
-	
-  SETGATE(idt[T_SYSCALL], 1, SEG_KCODE<<3, vectors[T_SYSCALL], DPL_USER);	
-  SETGATE(idt[128], 1, SEG_KCODE<<3, vectors[128], DPL_USER);
-	
+    SETGATE(idt[i], 0, SEG_KCODE<<3, vectors[i], 0);
+  SETGATE(idt[T_SYSCALL], 1, SEG_KCODE<<3, vectors[T_SYSCALL], DPL_USER);
+  SETGATE(idt[T_SCHLOCK], 1, SEG_KCODE<<3, vectors[T_SCHLOCK], DPL_USER);
+  SETGATE(idt[T_SCHUNLOCK], 1, SEG_KCODE<<3, vectors[T_SCHUNLOCK], DPL_USER);
   initlock(&tickslock, "time");
 }
 
@@ -34,14 +45,11 @@ idtinit(void)
   lidt(idt, sizeof(idt));
 }
 
+
 //PAGEBREAK: 41
 void
 trap(struct trapframe *tf)
 {
-  if(tf->trapno == 128){
-	cprintf("user interrupt %d called\n", tf->trapno);
-	exit();
-  }  
   if(tf->trapno == T_SYSCALL){
     if(myproc()->killed)
       exit();
@@ -51,16 +59,49 @@ trap(struct trapframe *tf)
       exit();
     return;
   }
+
+//MLFQ
+  // 129 for schedulerLock interrupt
+  // 130 for schedulerUnlock interrupt
+  if(tf->trapno == T_SCHLOCK){
+    if(myproc()->killed)
+      exit();
+    myproc()->tf = tf;
+    schedulerLock(2018015414);
+    if(myproc()->killed)
+      exit();
+    return;
+  }
+  if(tf->trapno == T_SCHUNLOCK){
+    if(myproc()->killed)
+      exit();
+    myproc()->tf = tf;
+    schedulerUnlock(2018015414);
+    if(myproc()->killed)
+      exit();
+    return;
+  }
+
+
+//timer interrupt for scheduling
   switch(tf->trapno){
   case T_IRQ0 + IRQ_TIMER:
     if(cpuid() == 0){
       acquire(&tickslock);
       ticks++;
+      if(myproc()){
+        myproc() -> rTick++;
+      }
+      if(ticks % MAX_TICKS==0){
+        boostPriority();
+      }
+
       wakeup(&ticks);
       release(&tickslock);
     }
     lapiceoi();
     break;
+
   case T_IRQ0 + IRQ_IDE:
     ideintr();
     lapiceoi();
@@ -107,11 +148,35 @@ trap(struct trapframe *tf)
 
   // Force process to give up CPU on clock tick.
   // If interrupts were on while locks held, would need to check nlock.
-  if(myproc() && myproc()->state == RUNNING &&
-     tf->trapno == T_IRQ0+IRQ_TIMER)
-    yield();
+    // check if process time quantum is over
+  if(myproc() && myproc()->state == RUNNING && tf->trapno == T_IRQ0+IRQ_TIMER){
+    if(myproc()->qLevel == 0 && myproc()->rTick >= L0_TICKS && myproc()->schLocked != 1){
+        myproc()->rTick = 0;
+        myproc()->qLevel = 1;
+        myproc()->priority = 3;
+        yield();
+    }
+    else if(myproc()->qLevel == 1 && myproc()->rTick >= L1_TICKS && myproc()->schLocked !=1){
+        myproc()->rTick = 0;
+        myproc()->qLevel = 2;
+        myproc()->priority = 3;
+        yield();
+    }
+    else if(myproc()->qLevel == 2 && myproc()->rTick >= L2_TICKS && myproc()->schLocked !=1){
+        myproc()->rTick = 0;
+        if(myproc()->priority > 0){
+        myproc()->priority--;
+        }
+        yield();
+    }
+    else{
+        myproc()->rTick = 0;
+        yield();
+    }
+  }
 
   // Check if the process has been killed since we yielded
   if(myproc() && myproc()->killed && (tf->cs&3) == DPL_USER)
     exit();
 }
+
