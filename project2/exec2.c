@@ -28,7 +28,7 @@ exec2(char *path, char **argv, int stacksize)
   }
   ilock(ip);
   pgdir = 0;
-  //check if stack size is in 1~100
+  //check if stack size is in range(1~100)
   if(stacksize < 1 || stacksize > 100)
     goto bad;
   // Check ELF header
