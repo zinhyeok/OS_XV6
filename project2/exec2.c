@@ -124,3 +124,11 @@ exec2(char *path, char **argv, int stacksize)
   }
   return -1;
 }
+
+//wrapper function for exec2.c
+int sys_exec2(void){
+    char *path, **argv; int stacksize;
+    if(argstr(0, &path) < 0 || argstr(1, (char**)&argv) < 0 || argint(2, &stacksize) < 0)
+        return -1;
+    return exec2(path, argv, stacksize);
+}
