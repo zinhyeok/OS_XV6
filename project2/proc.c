@@ -112,6 +112,9 @@ found:
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
 
+  //set default fields of process 
+  p->memlimit = 0;
+
   return p;
 }
 
@@ -391,6 +394,35 @@ yield(void)
   release(&ptable.lock);
 }
 
+// set memory limit for a given process
+int 
+setmemorylimit(int pid, int limit)
+{
+  struct proc *p;
+  // Find the process with the given PID
+  acquire(&ptable.lock);
+  for (p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+  {
+    if (p->pid == pid)
+    {
+      //if the limit is less than the current size of the process, return -1
+      if(limit < 0 || limit < p->sz)
+      {
+        release(&ptable.lock);
+        return -1; // Failure
+      }
+      // Set the memory limit for the process
+      p->memlimit = limit;
+      release(&ptable.lock);
+      return 0; // Success
+    }
+  }
+    release(&ptable.lock);
+    // Process with the given PID not found
+    return -1; // Failure
+}
+
+
 // A fork child's very first scheduling by scheduler()
 // will swtch here.  "Return" to user space.
 void
@@ -532,3 +564,4 @@ procdump(void)
     cprintf("\n");
   }
 }
+

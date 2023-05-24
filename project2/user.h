@@ -24,6 +24,7 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);
 int exec2(char*, char**, int);
+int setmemorylimit(int, int);
 
 // ulib.c
 int stat(const char*, struct stat*);
