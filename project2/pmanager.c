@@ -30,14 +30,6 @@ int main() {
       }
     }
 
-    //check args
-    //TODO:delete when testing code is done
-    for(int i =0; i< MAX_ARG_SIZE; i++){
-        printf(1, "%d, %s\n", i, args[i]);
-      }
-    printf(1, "cmd contain 0? ...: %d\n", strcmp(args[0], "list\0"));
-    printf(1, "cmd not contain 0? ...: %d\n", strcmp(args[0], "list"));
-
     // Check if the command is "exit"
     if (strcmp(args[0], "exit") == 0) {
       printf(1, "Shutting down... pmanager\n");
@@ -45,7 +37,6 @@ int main() {
     }
 
     // Process other commands with arguments
-    // TODO: Add code to handle other commands with arguments
 
     // Check if the command is "list"
     //list command print information about running processes
@@ -60,21 +51,26 @@ int main() {
     //kill command kill a process with a given pid
     //if the process is a thread, kill all threads in the same process
     if (strcmp(args[0], "kill") == 0) {
-      printf(1, "kill working\n");
+      int pid = *args[1] - '0';
+      kill(pid);
     }
 
     // Check if the command is "execute"
     //execute command execute a given program in given path
     //if the program is already running, print error message
     if (strcmp(args[0], "execute") == 0) {
-      printf(1, "execute working\n");
+      char *path = args[1];
+      int stacksize = *args[2] - '0';
+      exec2(path, (char**)&path, stacksize);
     }
 
     // Check if the command is "memlim"
     //limit the memory size of a process with a given pid
     //process memoty should consider thread memory
     if (strcmp(args[0], "memlim") == 0) {
-      printf(1, "memlim working\n");
+      int pid = *args[1] - '0';
+      int limit = *args[2] - '0';
+      setmemorylimit(pid, limit);
     }
   }
   return 0;
