@@ -21,6 +21,8 @@ int main() {
     char *args[MAX_ARG_SIZE]; // Assuming a maximum of 10 arguments
     memset(args, 0, sizeof(args));
 
+
+
     //split the command into arguments
     for (int i = 0; i < sizeof(command) && argCount < MAX_ARG_SIZE; i++) {
       if (command[i] == ' ' || command[i] == '\0' || command[i] == 10) {
@@ -28,6 +30,12 @@ int main() {
         args[argCount++] = token;
         token = &command[i + 1];
       }
+    }
+
+    //print all arguments
+    // Check args (for testing purposes)
+    for (int i = 0; i < MAX_ARG_SIZE; i++) {
+      printf(1, "%dth is: %s\n", i, args[i]);
     }
 
     // Check if the command is "exit"
@@ -44,14 +52,14 @@ int main() {
     //include thread information
     //thread does not print
     if (strcmp(args[0], "list") == 0) {
-      printf(1, "list working\n");
+      list();
     }
 
     // Check if the command is "kill"
     //kill command kill a process with a given pid
     //if the process is a thread, kill all threads in the same process
     if (strcmp(args[0], "kill") == 0) {
-      int pid = *args[1] - '0';
+      int pid = (int)args[1];
       kill(pid);
     }
 
@@ -60,7 +68,7 @@ int main() {
     //if the program is already running, print error message
     if (strcmp(args[0], "execute") == 0) {
       char *path = args[1];
-      int stacksize = *args[2] - '0';
+      int stacksize = (int)args[2];
       exec2(path, (char**)&path, stacksize);
     }
 
@@ -68,8 +76,8 @@ int main() {
     //limit the memory size of a process with a given pid
     //process memoty should consider thread memory
     if (strcmp(args[0], "memlim") == 0) {
-      int pid = *args[1] - '0';
-      int limit = *args[2] - '0';
+      int pid = atoi(args[1]);
+      int limit = atoi(args[2]);
       setmemorylimit(pid, limit);
     }
   }

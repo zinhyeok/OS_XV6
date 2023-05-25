@@ -114,6 +114,7 @@ found:
 
   //set default fields of process 
   p->memlimit = 0;
+  p->numstackpage = 1;
 
   return p;
 }
@@ -398,6 +399,7 @@ yield(void)
 int 
 setmemorylimit(int pid, int limit)
 {
+  cprintf("limit is %d\n", limit);
   struct proc *p;
   // Find the process with the given PID
   acquire(&ptable.lock);
@@ -527,6 +529,25 @@ kill(int pid)
   release(&ptable.lock);
   return -1;
 }
+
+// syscall for list
+int
+list(void){
+  struct proc *p;
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->state == RUNNABLE || p->state == SLEEPING || p->state == RUNNING){
+      cprintf("process name: %s \n", p->name);
+      cprintf("process pid: %d \n", p->pid);
+      cprintf("num of stack page: %d \n", p->numstackpage);
+      cprintf("allocate memeory size %d \n", p->sz);
+      cprintf("memory limit %d \n", p->memlimit); 
+    }
+  }
+  release(&ptable.lock);
+  return 0;
+}
+
 
 //PAGEBREAK: 36
 // Print a process listing to console.  For debugging.

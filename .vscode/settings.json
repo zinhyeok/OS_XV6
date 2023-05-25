@@ -3,6 +3,7 @@
         "proc.h": "c",
         "string.h": "c",
         "types.h": "c",
-        "cstdio": "c"
+        "cstdio": "c",
+        "user.h": "c"
     }
 }
