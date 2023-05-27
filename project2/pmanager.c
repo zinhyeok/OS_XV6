@@ -32,12 +32,6 @@ int main() {
       }
     }
 
-    //print all arguments
-    // Check args (for testing purposes)
-    // for (int i = 0; i < MAX_ARG_SIZE; i++) {
-    //   printf(1, "%dth is: %s\n", i, args[i]);
-    // }
-
     // Check if the command is "exit"
     if (strcmp(args[0], "exit") == 0) {
       printf(1, "Shutting down... pmanager\n");
@@ -59,8 +53,6 @@ int main() {
     // Check if the command is "kill"
     //kill command kill a process with a given pid
     //if the process is a thread, kill all threads in the same process
-    //if kill is successful, print "kill completed"
-    //if pmanager is killed, kill completed does not print
     if (strcmp(args[0], "kill") == 0) {
       int pid = atoi(args[1]);
       if(kill(pid)==0)
@@ -75,20 +67,21 @@ int main() {
       printf(1,"executing\n");
       char *path = args[1];
       char* argv[] = {path, 0};
-      int stacksize = atoi(args[2]);
+      // int stacksize = atoi(args[2]);
 
       int pid = fork();
       if (pid < 0) {
       // Forking failed
-      printf(1, "Error: Forking failed\n");
-      }else if (pid == 0){
-      if(exec2(path, argv, stacksize) == -1){
+        printf(1, "Error: Forking failed\n");
+      }
+      else if (pid == 0){
+        if(exec(path, argv) == -1){
         printf(1, "execute failed \n");
       }
-      }
-
-      // if(exec2(path, (char**)&path, stacksize)== -1)
+      // if(exec2(path, argv, stacksize) == -1){
       //   printf(1, "execute failed \n");
+      // }
+      }
     }
 
     // Check if the command is "memlim"
