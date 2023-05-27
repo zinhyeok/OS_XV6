@@ -67,7 +67,7 @@ int main() {
       printf(1,"executing\n");
       char *path = args[1];
       char* argv[] = {path, 0};
-      // int stacksize = atoi(args[2]);
+      int stacksize = atoi(args[2]);
 
       int pid = fork();
       if (pid < 0) {
@@ -75,7 +75,7 @@ int main() {
         printf(1, "Error: Forking failed\n");
       }
       else if (pid == 0){
-        if(exec(path, argv) == -1){
+        if(exec2(path, argv, stacksize) == -1){
         printf(1, "execute failed \n");
       }
       // if(exec2(path, argv, stacksize) == -1){
