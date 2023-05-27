@@ -20,14 +20,14 @@ exec(char *path, char **argv)
   struct proc *curproc = myproc();
 
   begin_op();
-
   if((ip = namei(path)) == 0){
     end_op();
-    cprintf("exec: fail\n");
+    // cprintf("exec: fail, no file\n");
     return -1;
   }
   ilock(ip);
   pgdir = 0;
+  // cprintf("exec: find file, paht: %s, argv: %s \n", path, argv[0]);
 
   // Check ELF header
   if(readi(ip, (char*)&elf, 0, sizeof(elf)) != sizeof(elf))

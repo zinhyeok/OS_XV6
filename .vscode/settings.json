@@ -4,6 +4,7 @@
         "string.h": "c",
         "types.h": "c",
         "cstdio": "c",
-        "user.h": "c"
+        "user.h": "c",
+        "stat.h": "c"
     }
 }

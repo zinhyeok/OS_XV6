@@ -399,7 +399,6 @@ yield(void)
 int 
 setmemorylimit(int pid, int limit)
 {
-  cprintf("limit is %d\n", limit);
   struct proc *p;
   // Find the process with the given PID
   acquire(&ptable.lock);
@@ -540,8 +539,9 @@ list(void){
       cprintf("process name: %s \n", p->name);
       cprintf("process pid: %d \n", p->pid);
       cprintf("num of stack page: %d \n", p->numstackpage);
-      cprintf("allocate memeory size %d \n", p->sz);
-      cprintf("memory limit %d \n", p->memlimit); 
+      cprintf("allocate memeory size: %d \n", p->sz);
+      cprintf("memory limit: %d \n", p->memlimit); 
+      cprintf("\n");
     }
   }
   release(&ptable.lock);

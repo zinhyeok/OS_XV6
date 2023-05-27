@@ -34,13 +34,14 @@ int main() {
 
     //print all arguments
     // Check args (for testing purposes)
-    for (int i = 0; i < MAX_ARG_SIZE; i++) {
-      printf(1, "%dth is: %s\n", i, args[i]);
-    }
+    // for (int i = 0; i < MAX_ARG_SIZE; i++) {
+    //   printf(1, "%dth is: %s\n", i, args[i]);
+    // }
 
     // Check if the command is "exit"
     if (strcmp(args[0], "exit") == 0) {
       printf(1, "Shutting down... pmanager\n");
+      exit();
       break;
     }
 
@@ -58,27 +59,47 @@ int main() {
     // Check if the command is "kill"
     //kill command kill a process with a given pid
     //if the process is a thread, kill all threads in the same process
+    //if kill is successful, print "kill completed"
+    //if pmanager is killed, kill completed does not print
     if (strcmp(args[0], "kill") == 0) {
-      int pid = (int)args[1];
-      kill(pid);
+      int pid = atoi(args[1]);
+      if(kill(pid)==0)
+        printf(1, "kill %d completed \n", pid);
     }
 
     // Check if the command is "execute"
     //execute command execute a given program in given path
     //if the program is already running, print error message
+    //if execute is failed, print error message
     if (strcmp(args[0], "execute") == 0) {
+      printf(1,"executing\n");
       char *path = args[1];
-      int stacksize = (int)args[2];
-      exec2(path, (char**)&path, stacksize);
+      char* argv[] = {path, 0};
+      int stacksize = atoi(args[2]);
+
+      int pid = fork();
+      if (pid < 0) {
+      // Forking failed
+      printf(1, "Error: Forking failed\n");
+      }else if (pid == 0){
+      if(exec2(path, argv, stacksize) == -1){
+        printf(1, "execute failed \n");
+      }
+      }
+
+      // if(exec2(path, (char**)&path, stacksize)== -1)
+      //   printf(1, "execute failed \n");
     }
 
     // Check if the command is "memlim"
     //limit the memory size of a process with a given pid
     //process memoty should consider thread memory
+    // if setmemorylimit is successful, print "set memory limit completed"
     if (strcmp(args[0], "memlim") == 0) {
       int pid = atoi(args[1]);
       int limit = atoi(args[2]);
-      setmemorylimit(pid, limit);
+      if(setmemorylimit(pid, limit)==0)
+        printf(1, "set memory limt of porcess pid: %d to limit %d \n", pid, limit);
     }
   }
   return 0;
