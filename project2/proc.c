@@ -566,41 +566,43 @@ list(void){
 //create thread for LWP
 int thread_create(thread_t *threadId, void *(*start_routine)(void *), void *arg){
   uint sz, sp;
-  // uint ustack[1+4+MAXARG];
+  uint ustack[4];
   struct proc *thread;
   struct proc *curproc = myproc();
+  struct proc *p;
 
   // Allocate process.
   if((thread = allocproc()) == 0){
     return -1;
   }
-
+  
+  thread->pgdir = curproc->pgdir;
   //same as exec.c
   // Allocate stackesize+1 pages at the thread page boundary.
   // Make the first inaccessible.  Use the second as the user stack.
   sz = 0;
-  int stacksize = curproc->numstackpage;
-  if((sz = allocuvm(curproc->pgdir, curproc->sz, sz + (stacksize+1)*PGSIZE)) == 0)
+ 
+  if((allocuvm(curproc->pgdir, curproc->sz, sz + 2*PGSIZE)) == 0)
     return -1;
-  clearpteu(curproc->pgdir, (char*)(sz - (stacksize)*PGSIZE));
-  
-  sp = sz - ((stacksize+1)*PGSIZE);
+  clearpteu(thread->pgdir, (char*)(sz - 2*PGSIZE));
+  thread-> sz = sz;
+  thread -> sz = curproc->sz;
+  sz = curproc->sz;
+  sp = sz;
+
+  thread->tf=curproc->tf;
+
   // ustack[0] = 0xffffffff;  // fake return PC
-  sp -= 4;
-  *(uint *)sp = (uint)arg; // Argument for start_routine
+  // *(uint *)sp = (uint)arg; // Argument for start_routine
 
-  // if(copyout(curproc->pgdir, sp, ustack, 4) < 0)
-  //   return -1;
+  ustack[0] = 0xffffffff;  // fake return PC
+  ustack[1] = sizeof(arg)/4;
+  ustack[2] = sp - ((sizeof(arg)/4)+1)*4;  // argv pointer
 
-  // Set the thread's instruction pointer (eip) to the start_routine function
-  thread->tf->eax = 0;
-  thread->tf->eip = (uint)start_routine;
-  // Set the thread's stack pointer (esp)
-  thread->tf->esp = sp;
+  sp-=4*4;
 
-
-  // Clear the return value of the thread
-  thread->retval = 0;
+  if(copyout(thread->pgdir,sp,ustack,16)<0)
+    return -1;
 
   // Set the thread field which is need
   thread->tid = *threadId;
@@ -609,9 +611,22 @@ int thread_create(thread_t *threadId, void *(*start_routine)(void *), void *arg)
   thread->parent  = curproc;
   thread->mThread = curproc;
 
+  // Set the thread's instruction pointer (eip) to the start_routine function
+  
+  thread->tf->eax = 0;
+  thread->tf->eip = (uint)start_routine;
+  // Set the thread's stack pointer (esp)
+  thread->tf->esp = sp;
+
+
 
   acquire(&ptable.lock);
-  thread->state = RUNNABLE;
+  for(p=ptable.proc;p<&ptable.proc[NPROC];p++){
+    if(p->parent->pid==thread->parent->pid){
+      p->sz=thread->sz;
+    }
+  }
+
   release(&ptable.lock);
   return 0;
 }
