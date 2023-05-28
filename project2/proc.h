@@ -1,3 +1,5 @@
+typedef int thread_t;
+
 // Per-CPU state
 struct cpu {
   uchar apicid;                // Local APIC ID
@@ -34,11 +36,11 @@ struct context {
 
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
-// Per-process state
+// Per-process state & for light weight process
 struct proc {
   uint sz;                     // Size of process memory (bytes)
   uint memlimit;              //  Memory limit (bytes)
-  int  numstackpage;             // number of allocated stack page 
+  int  numstackpage;          // number of allocated stack page 
   pde_t* pgdir;                // Page table
   char *kstack;                // Bottom of kernel stack for this process
   enum procstate state;        // Process state
@@ -51,6 +53,11 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  //for LWP
+  int isThread;                // if process is thread 1 or 0, initialy 0
+  thread_t tid;                // if main thread, same as pid, all tid is different like pid, pid can be same in same tg
+  void *retval;                // return value of thread
+  struct proc *mThread;        // mian thread of thread
 };
 
 // Process memory is laid out contiguously, low addresses first:

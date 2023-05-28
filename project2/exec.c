@@ -19,6 +19,9 @@ exec(char *path, char **argv)
   pde_t *pgdir, *oldpgdir;
   struct proc *curproc = myproc();
 
+    //kill all thread befor exec
+  clean_thread(curproc->pid);
+  
   begin_op();
   if((ip = namei(path)) == 0){
     end_op();
@@ -35,8 +38,11 @@ exec(char *path, char **argv)
   if(elf.magic != ELF_MAGIC)
     goto bad;
 
+
+  
   if((pgdir = setupkvm()) == 0)
     goto bad;
+
 
   // Load program into memory.
   sz = 0;

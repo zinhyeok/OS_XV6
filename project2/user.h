@@ -1,3 +1,4 @@
+typedef int thread_t;
 struct stat;
 struct rtcdate;
 
@@ -26,6 +27,10 @@ int uptime(void);
 int exec2(char*, char**, int);
 int setmemorylimit(int, int);
 int list(void);
+int thread_create(thread_t *, void*, void*);
+int thread_join(thread_t, void**);
+void thread_exit(void*);
+void clean_thread(int);
 
 // ulib.c
 int stat(const char*, struct stat*);
