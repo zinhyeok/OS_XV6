@@ -115,6 +115,7 @@ sys_fstat(void)
 }
 
 // Create the path new as a link to the same inode as old.
+//hardlink
 int
 sys_link(void)
 {
@@ -139,6 +140,67 @@ sys_link(void)
 
   ip->nlink++;
   iupdate(ip);
+  iunlock(ip);
+
+  if((dp = nameiparent(new, name)) == 0)
+    goto bad;
+  ilock(dp);
+  if(dp->dev != ip->dev || dirlink(dp, name, ip->inum) < 0){
+    iunlockput(dp);
+    goto bad;
+  }
+  iunlockput(dp);
+  iput(ip);
+
+  end_op();
+
+  return 0;
+
+bad:
+  ilock(ip);
+  ip->nlink--;
+  iupdate(ip);
+  iunlockput(ip);
+  end_op();
+  return -1;
+}
+// Create the path new as a link to the same inode as old.
+//symbolic link
+// ip old, dp new 
+int
+sys_symlink(void)
+{
+  char name[DIRSIZ], *new, *old;
+  struct inode *dp, *ip;
+
+  if(argstr(0, &old) < 0 || argstr(1, &new) < 0)
+    return -1;
+
+  begin_op();
+  if((ip = namei(old)) == 0){
+    end_op();
+    return -1;
+  }
+
+  ilock(ip);
+  //dir이어도 상관 X 
+
+  // Allocate a new inode for the symbolic link
+  struct inode *link_ip = ialloc(ip->dev, T_SYMLINK);
+  if (link_ip == 0) {
+    iunlockput(ip);
+    end_op();
+    return -1;
+  }
+
+  // Store the target path as the data in the symbolic link inode
+  if (writei(link_ip, new, 0, strlen(new)) != strlen(new)) {
+    iunlockput(ip);
+    iunlockput(link_ip);
+    end_op();
+    return -1;
+  }
+
   iunlock(ip);
 
   if((dp = nameiparent(new, name)) == 0)
@@ -294,26 +356,25 @@ sys_open(void)
     return -1;
 
   begin_op();
-
-  if(omode & O_CREATE){
-    ip = create(path, T_FILE, 0, 0);
-    if(ip == 0){
-      end_op();
-      return -1;
+    if(omode & O_CREATE){
+      ip = create(path, T_FILE, 0, 0);
+      if(ip == 0){
+        end_op();
+        return -1;
+      }
+    } else {
+      if((ip = namei(path)) == 0){
+        end_op();
+        return -1;
+      }
+      ilock(ip);
+      if(ip->type == T_DIR && omode != O_RDONLY){
+        iunlockput(ip);
+        end_op();
+        return -1;
+      }
     }
-  } else {
-    if((ip = namei(path)) == 0){
-      end_op();
-      return -1;
-    }
-    ilock(ip);
-    if(ip->type == T_DIR && omode != O_RDONLY){
-      iunlockput(ip);
-      end_op();
-      return -1;
-    }
-  }
-
+  
   if((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0){
     if(f)
       fileclose(f);
