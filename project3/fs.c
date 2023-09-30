@@ -395,6 +395,7 @@ bmap(struct inode *ip, uint bn)
     brelse(bp);
     return addr;
   }
+  bn -= NINDIRECT;
   //for double indirect block
   if(bn < NINDIRECT*NINDIRECT){
     //double indirect block

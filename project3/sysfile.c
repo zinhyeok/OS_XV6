@@ -368,6 +368,25 @@ sys_open(void)
         return -1;
       }
       ilock(ip);
+      // Check if the inode is a symbolic link
+      if (ip->type == T_SYMLINK){
+        // Read the target path from the symbolic link's inode
+        char target_path[DIRSIZ];
+        if (readi(ip, target_path, 0, ip->size) != ip->size) {
+          iunlockput(ip);
+          end_op();
+          return -1;
+        }
+
+        // Resolve the symbolic link to its target file or directory
+        iput(ip);
+        ip = namei(target_path);
+        if (ip == 0) {
+          end_op();
+          return -1;
+        }
+      }
+      ilock(ip);
       if(ip->type == T_DIR && omode != O_RDONLY){
         iunlockput(ip);
         end_op();
